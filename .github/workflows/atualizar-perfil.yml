@@ -1,0 +1,35 @@
+name: Atualizar perfil
+
+# Refaz as artes, o README e o portfólio sempre que o conteúdo (ou o gerador) mudar.
+# O estilo "lc" desenha as artes no Chrome que já vem no runner e busca as fontes no Google Fonts.
+on:
+  push:
+    paths:
+      - perfil.config.mjs
+      - portfolio.config.mjs
+      - gerar.mjs
+      - portfolio.mjs
+      - estilos/**
+      - ferramentas/**
+      - imagens/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node gerar.mjs
+      - name: Salvar artes novas
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets README.md portfolio.md
+          git diff --cached --quiet || git commit -m "Atualiza artes do perfil"
+          git push

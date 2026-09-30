@@ -1,0 +1,7 @@
+# prévias locais (geradas por node gerar.mjs --previa)
+previa.html
+previa-publicar.html
+previa/
+# estudos antigos, só na máquina
+_arquivo/
+node_modules/
