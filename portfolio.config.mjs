@@ -8,7 +8,7 @@
 
 export default {
   intro:
-    'Projetos que desenvolvi no meu trabalho em uma empresa de cosméticos: sistemas, integrações, atendimento no WhatsApp e relatórios. Para proteger a empresa, nomes, números e dados internos ficaram de fora, e os sistemas de terceiros aparecem pelo tipo (ERP, CRM de vendas, plataforma de WhatsApp).',
+    'Sistemas, integrações, atendimento no WhatsApp e relatórios que construí. Nomes e dados internos ficaram de fora, e os sistemas de terceiros aparecem pelo tipo (ERP, CRM de vendas, plataforma de WhatsApp).',
 
   areas: ['Sistemas', 'Integrações', 'WhatsApp e atendimento', 'Relatórios e painéis', 'Rotinas e controles', 'Documentos'],
 

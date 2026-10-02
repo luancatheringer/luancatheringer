@@ -26,9 +26,8 @@ export default {
       titulo: 'Plataforma para marketplace',
       descricao:
         'Acompanha preço e revendedores nos marketplaces, calcula a margem real de cada anúncio e aponta quem fura a política de preço.',
-      // Frase curta e observação que aparecem ao lado do painel animado
+      // Frase curta que aparece ao lado do painel animado (e "nota", opcional, logo abaixo)
       chamada: 'Preço, concorrência, margem e marca no mesmo painel.',
-      nota: 'criado para uma empresa de cosméticos',
     },
     {
       slug: 'pedido-b2b-no-erp-certo',
