@@ -1,14 +1,14 @@
 name: Atualizar perfil
 
-# Refaz as artes, o README e o portfólio sempre que o conteúdo (ou o gerador) mudar.
-# O estilo "lc" desenha as artes no Chrome que já vem no runner e busca as fontes no Google Fonts.
+# Refaz as artes, o README e o currículo sempre que o conteúdo (ou o gerador) mudar.
+# As artes são desenhadas no Chrome que já vem no runner, com a fonte JetBrains Mono do Google Fonts.
 on:
   push:
     paths:
       - perfil.config.mjs
-      - portfolio.config.mjs
+      - curriculo.config.mjs
       - gerar.mjs
-      - portfolio.mjs
+      - curriculo.mjs
       - estilos/**
       - ferramentas/**
       - imagens/**
@@ -30,6 +30,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets README.md portfolio.md
+          git add -A assets README.md curriculo.md
           git diff --cached --quiet || git commit -m "Atualiza artes do perfil"
           git push

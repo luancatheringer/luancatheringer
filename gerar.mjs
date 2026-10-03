@@ -1,6 +1,6 @@
-// Gera as artes animadas (SVG), o README.md e o portfolio.md a partir de perfil.config.mjs e portfolio.config.mjs.
+// Gera as artes animadas (SVG), o README.md e o curriculo.md a partir de perfil.config.mjs e curriculo.config.mjs.
 // Uso:
-//   node gerar.mjs           → artes do estilo escolhido (assets/) + README.md + portfolio.md
+//   node gerar.mjs           → artes do estilo escolhido (assets/) + README.md + curriculo.md
 //   node gerar.mjs --previa  → também gera a prévia num arquivo único, com as artes embutidas:
 //                              previa.html (abre com dois cliques) e previa-publicar.html (vira link)
 
@@ -13,44 +13,41 @@ const importar = (arquivo) => import(pathToFileURL(join(RAIZ, arquivo)).href + '
 
 const { default: cfg } = await importar('perfil.config.mjs');
 const { esc } = await importar('estilos/_base.mjs');
-const { portfolioMarkdown, portfolioHtml } = await importar('portfolio.mjs');
-const dadosPortfolio = existsSync(join(RAIZ, 'portfolio.config.mjs')) ? (await importar('portfolio.config.mjs')).default : null;
+const { curriculoMarkdown, curriculoHtml } = await importar('curriculo.mjs');
+const dadosCurriculo = existsSync(join(RAIZ, 'curriculo.config.mjs')) ? (await importar('curriculo.config.mjs')).default : null;
 
 // Estilos disponíveis: cada um é um arquivo em estilos/ (os que começam com _ são peças compartilhadas)
-const ESTILOS = ['lc'].filter((id) => existsSync(join(RAIZ, 'estilos', `${id}.mjs`)));
+const ESTILOS = ['terminal'].filter((id) => existsSync(join(RAIZ, 'estilos', `${id}.mjs`)));
 // O que aparece na página de prévia (com mais de um, vira comparação entre variações)
 const NA_PREVIA = [...ESTILOS];
-// Estilo da prévia usado na aba do portfólio
-const ESTILO_DA_PREVIA = cfg.estilo;
 const TEMAS = ['claro', 'escuro'];
 const estilos = {};
 for (const id of ESTILOS) estilos[id] = await importar(`estilos/${id}.mjs`);
 if (!estilos[cfg.estilo]) throw new Error(`Estilo "${cfg.estilo}" não existe. Opções: ${ESTILOS.join(', ')}.`);
 
-// Links dos cases: no GitHub apontam para portfolio.md; na prévia, para a aba Portfólio
-const URL_PORTFOLIO = `https://github.com/${cfg.usuario}/${cfg.usuario}/blob/main/portfolio.md`;
-const temCaso = (slug) => Boolean(dadosPortfolio?.projetos.some((p) => p.slug === slug));
+// Links: no GitHub apontam para curriculo.md; na prévia, para a aba Currículo
+const URL_CURRICULO = `https://github.com/${cfg.usuario}/${cfg.usuario}/blob/main/curriculo.md`;
+const slugsDoCurriculo = new Set((dadosCurriculo?.experiencia ?? []).flatMap((g) => g.itens.map((it) => it.slug).filter(Boolean)));
 function comLinks(modo) {
-  const caso = (slug) => (modo === 'github' ? `${URL_PORTFOLIO}#${slug}` : `#caso-${slug}`);
+  const caso = (slug) => (modo === 'github' ? `${URL_CURRICULO}#${slug}` : `#caso-${slug}`);
   return {
     ...cfg,
-    urlPortfolio: dadosPortfolio ? (modo === 'github' ? URL_PORTFOLIO : '#caso-topo') : null,
-    projetos: cfg.projetos.map((p) => ({ ...p, link: temCaso(p.slug) ? caso(p.slug) : p.link })),
+    urlCurriculo: dadosCurriculo ? (modo === 'github' ? URL_CURRICULO : '#caso-topo') : null,
+    projetos: cfg.projetos.map((p) => ({ ...p, link: slugsDoCurriculo.has(p.slug) ? caso(p.slug) : p.link })),
   };
 }
 
-// Alguns estilos desenham as partes fixas no navegador (para usar as fontes da marca).
+// Os estilos desenham as partes fixas no navegador (para usar as fontes certas).
 // O navegador só abre se o estilo pedir, e fecha no fim.
 let navegador = null;
 async function contexto(id) {
   if (!estilos[id].precisaDeNavegador) return {};
   if (!navegador) navegador = await (await importar('ferramentas/navegador.mjs')).abrirNavegador();
   return {
-    // o estilo também desenha a animação de cada case do portfólio
-    portfolio: dadosPortfolio,
+    executar: (...args) => navegador.executar(...args),
     renderizar: async (...args) => {
       const r = await navegador.renderizar(...args);
-      // Sem as fontes da marca a arte sairia com uma substituta: melhor parar do que gravar isso.
+      // Sem as fontes certas a arte sairia com uma substituta: melhor parar do que gravar isso.
       if (r.fontesFaltando.length)
         throw new Error(`O navegador não carregou as fontes (${r.fontesFaltando.join(', ')}). Confira a internet e rode de novo. Nada foi alterado.`);
       return r;
@@ -68,12 +65,23 @@ async function artesDo(id, tema) {
   }
   return artesProntas.get(chave);
 }
+// Arte igual nos dois temas (o topo, que é escuro sempre) vira um arquivo só
+async function unicasDo(id) {
+  const claro = await artesDo(id, 'claro');
+  const escuro = await artesDo(id, 'escuro');
+  return new Set(Object.keys(claro).filter((nome) => claro[nome] === escuro[nome]));
+}
 
 // Primeiro gera tudo, depois troca a pasta: se a geração falhar, as artes antigas continuam lá.
 async function gravarArtes(id, pasta) {
+  const unicas = await unicasDo(id);
   const prontas = [];
   for (const tema of TEMAS) {
-    for (const [nome, conteudo] of Object.entries(await artesDo(id, tema))) prontas.push([`${nome}-${tema}.svg`, conteudo]);
+    for (const [nome, conteudo] of Object.entries(await artesDo(id, tema))) {
+      if (unicas.has(nome)) {
+        if (tema === 'claro') prontas.push([`${nome}.svg`, conteudo]);
+      } else prontas.push([`${nome}-${tema}.svg`, conteudo]);
+    }
   }
   rmSync(pasta, { recursive: true, force: true });
   mkdirSync(pasta, { recursive: true });
@@ -81,74 +89,69 @@ async function gravarArtes(id, pasta) {
   return prontas.length;
 }
 
-// No GitHub: <picture> troca a arte conforme o tema de quem visita.
-const imgGithub = (dir) => (base, alt, attrs = '') =>
-  `<picture><source media="(prefers-color-scheme: dark)" srcset="${dir}/${base}-escuro.svg"><img alt="${esc(alt)}" src="${dir}/${base}-claro.svg" ${attrs}></picture>`;
-// Na prévia: a arte vem embutida na página e é escolhida pelo tema na hora de mostrar.
+// No GitHub: <picture> troca a arte conforme o tema de quem visita (a arte única entra direto).
+const imgGithub = (dir, unicas) => (base, alt, attrs = '') =>
+  unicas.has(base)
+    ? `<img alt="${esc(alt)}" src="${dir}/${base}.svg" ${attrs}>`
+    : `<picture><source media="(prefers-color-scheme: dark)" srcset="${dir}/${base}-escuro.svg"><img alt="${esc(alt)}" src="${dir}/${base}-claro.svg" ${attrs}></picture>`;
+// Na prévia: a arte vem embutida na página e é escolhida pelo tema (e pela variação) na hora de mostrar.
 const imgPrevia = (id) => (base, alt, attrs = '') => `<img alt="${esc(alt)}" data-arte="${id}/${base}" ${attrs}>`;
-// Animações de cada case do portfólio: caso-<slug>, caso-<slug>-2... (só as que o estilo gerou)
-const imagensDoCaso = (img, nomes) => (p) =>
-  (p.cenas ?? [])
-    .map((_, i) => `caso-${p.slug}${i ? `-${i + 1}` : ''}`)
-    .filter((nome) => nomes.has(nome))
-    .map((nome, i) => img(nome, `${p.titulo}: animação ilustrativa${i ? ` ${i + 1}` : ''}`, 'width="100%"'));
 
 try {
-const total = await gravarArtes(cfg.estilo, join(RAIZ, 'assets'));
-writeFileSync(
-  join(RAIZ, 'README.md'),
-  `<!-- Gerado por gerar.mjs a partir de perfil.config.mjs. Edite o config, não este arquivo. -->\n\n${estilos[cfg.estilo].readme(comLinks('github'), imgGithub('assets'))}`,
-);
-const altBanner = `${cfg.nome}: ${cfg.bio}`;
-const nomesDo = async (id) => new Set(Object.keys(await artesDo(id, 'claro')));
-if (dadosPortfolio)
+  const total = await gravarArtes(cfg.estilo, join(RAIZ, 'assets'));
+  const unicas = await unicasDo(cfg.estilo);
+  const img = imgGithub('assets', unicas);
   writeFileSync(
-    join(RAIZ, 'portfolio.md'),
-    portfolioMarkdown(cfg, dadosPortfolio, {
-      banner: imgGithub('assets')('banner', altBanner, 'width="100%"'),
-      imagensDoCaso: imagensDoCaso(imgGithub('assets'), await nomesDo(cfg.estilo)),
-    }),
+    join(RAIZ, 'README.md'),
+    `<!-- Gerado por gerar.mjs a partir de perfil.config.mjs. Edite o config, não este arquivo. -->\n\n${estilos[cfg.estilo].readme(comLinks('github'), img)}`,
   );
-console.log(
-  `Estilo "${cfg.estilo}": ${total} artes em assets/ e README.md.` +
-    (dadosPortfolio ? ` Portfólio com ${dadosPortfolio.projetos.length} projetos em portfolio.md.` : ''),
-);
-
-if (process.argv.includes('--previa')) {
-  const cfgPrevia = comLinks('previa');
-  const artes = {};
-  const secoes = [];
-  for (const id of NA_PREVIA) {
-    artes[id] = {};
-    for (const tema of TEMAS) {
-      for (const [nome, svg] of Object.entries(await artesDo(id, tema))) (artes[id][nome] ??= {})[tema] = svg;
-    }
-    secoes.push(`<section data-estilo="${id}" hidden>\n${estilos[id].readme(cfgPrevia, imgPrevia(id))}\n</section>`);
+  const altTopo = `${cfg.nome}: ${cfg.bio}`;
+  const pecasCurriculo = (im) => ({
+    topo: im('topo', altTopo, 'width="100%"'),
+    resumo: im('resumo', 'Resumo em números', 'width="100%"'),
+    imagem: (nome, titulo) => im(nome, `${titulo}: o que a plataforma tem`, 'width="100%"'),
+  });
+  if (dadosCurriculo) {
+    writeFileSync(join(RAIZ, 'curriculo.md'), curriculoMarkdown(cfg, dadosCurriculo, pecasCurriculo(img)));
+    // o currículo substituiu o portfólio
+    rmSync(join(RAIZ, 'portfolio.md'), { force: true });
   }
-  const temNaPrevia = NA_PREVIA.includes(ESTILO_DA_PREVIA);
-  const portfolio = dadosPortfolio
-    ? portfolioHtml(cfg, dadosPortfolio, RAIZ, {
-        banner: temNaPrevia ? imgPrevia(ESTILO_DA_PREVIA)('banner', altBanner, 'width="100%"') : '',
-        imagensDoCaso: temNaPrevia ? imagensDoCaso(imgPrevia(ESTILO_DA_PREVIA), await nomesDo(ESTILO_DA_PREVIA)) : undefined,
-      })
-    : '';
-  const conteudo = paginaPrevia(secoes, artes, portfolio);
-  writeFileSync(join(RAIZ, 'previa-publicar.html'), conteudo);
-  writeFileSync(
-    join(RAIZ, 'previa.html'),
-    `<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n</head>\n<body>\n${conteudo}</body>\n</html>\n`,
-  );
-  // cópia solta de cada arte, só para conferir uma a uma (pasta ignorada pelo git)
-  for (const id of NA_PREVIA) await gravarArtes(id, join(RAIZ, 'previa', id));
-  console.log(`Prévia${portfolio ? ' com o portfólio' : ''}: previa.html e previa-publicar.html.`);
-}
+  console.log(`Estilo "${cfg.estilo}": ${total} artes em assets/, README.md${dadosCurriculo ? ' e curriculo.md' : ''}.`);
+
+  if (process.argv.includes('--previa')) {
+    const cfgPrevia = comLinks('previa');
+    const artes = {};
+    const secoes = [];
+    for (const id of NA_PREVIA) {
+      artes[id] = {};
+      const unicasId = await unicasDo(id);
+      for (const tema of TEMAS) {
+        for (const [nome, svg] of Object.entries(await artesDo(id, tema))) {
+          // arte igual nos dois temas vai uma vez só (o escuro aponta para o claro)
+          (artes[id][nome] ??= {})[tema] = tema === 'escuro' && unicasId.has(nome) ? '=' : svg;
+        }
+      }
+      secoes.push(`<section data-estilo="${id}" hidden>\n${estilos[id].readme(cfgPrevia, imgPrevia(id))}\n</section>`);
+    }
+    // o currículo da prévia acompanha a variação escolhida (o "*" vira a variação ativa)
+    const curriculo = dadosCurriculo ? curriculoHtml(cfg, dadosCurriculo, pecasCurriculo(imgPrevia('*'))) : '';
+    const conteudo = paginaPrevia(secoes, artes, curriculo);
+    writeFileSync(join(RAIZ, 'previa-publicar.html'), conteudo);
+    writeFileSync(
+      join(RAIZ, 'previa.html'),
+      `<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n</head>\n<body>\n${conteudo}</body>\n</html>\n`,
+    );
+    // cópia solta de cada arte, só para conferir uma a uma (pasta ignorada pelo git)
+    for (const id of NA_PREVIA) await gravarArtes(id, join(RAIZ, 'previa', id));
+    console.log(`Prévia${curriculo ? ' com o currículo' : ''}: previa.html e previa-publicar.html.`);
+  }
 } finally {
   await navegador?.fechar();
 }
 
 // Página de comparação. Segue o contrato dos Artifacts (sem <html>/<head>/<body>; o link embrulha),
 // e as cores imitam o GitHub porque as artes escuras foram feitas para o fundo #0d1117.
-function paginaPrevia(secoes, artes, portfolio) {
+function paginaPrevia(secoes, artes, curriculo) {
   const botoes = NA_PREVIA.map((id) => `<button type="button" data-ir="${id}">${esc(estilos[id].nome)}</button>`).join('');
   const resumos = Object.fromEntries(NA_PREVIA.map((id) => [id, estilos[id].resumo]));
   const json = JSON.stringify(artes).replace(/<\//g, '<\\/');
@@ -175,8 +178,10 @@ body{background:var(--chao);color:var(--texto);font:15px/1.5 -apple-system,Blink
 .readme h1{margin:0 0 16px;padding-bottom:.3em;font-size:2em;border-bottom:1px solid var(--borda)}
 .readme h2{margin:32px 0 16px;padding-bottom:.3em;font-size:1.5em;border-bottom:1px solid var(--borda)}
 .readme h3{margin:24px 0 16px;font-size:20px;text-wrap:balance}
-.readme h1,.readme h2,.readme h3{scroll-margin-top:150px}
+.readme h1,.readme h2,.readme h3,.readme li{scroll-margin-top:150px}
 .readme ul{margin:0 0 16px;padding-left:2em;font-size:16px}
+.readme li{margin:0 0 8px}
+.readme li p{margin:12px 0 4px}
 .readme hr{border:0;border-top:1px solid var(--borda);margin:24px 0}
 .readme img{max-width:100%;vertical-align:middle}
 .readme a{color:var(--link)}
@@ -184,7 +189,7 @@ body{background:var(--chao);color:var(--texto);font:15px/1.5 -apple-system,Blink
 </style>
 <header class="topo"><div class="topo-dentro">
 <h1>${NA_PREVIA.length > 1 ? 'Direções do perfil' : 'Prévia do perfil'}<span>github.com/${esc(cfg.usuario)}</span></h1>
-${portfolio ? '<div class="grupo" role="group" aria-label="Página"><button type="button" data-pagina="perfil">Perfil</button><button type="button" data-pagina="portfolio">Portfólio</button></div>' : ''}
+${curriculo ? '<div class="grupo" role="group" aria-label="Página"><button type="button" data-pagina="perfil">Perfil</button><button type="button" data-pagina="curriculo">Currículo</button></div>' : ''}
 ${NA_PREVIA.length > 1 ? `<div class="grupo" role="group" aria-label="Variação">${botoes}</div>` : ''}
 <div class="grupo" role="group" aria-label="Tema"><button type="button" data-tema="claro">Claro</button><button type="button" data-tema="escuro">Escuro</button></div>
 <p id="resumo"></p>
@@ -193,14 +198,14 @@ ${NA_PREVIA.length > 1 ? `<div class="grupo" role="group" aria-label="Variação
 <p class="rotulo">${esc(cfg.usuario)} / README.md</p>
 ${secoes.join('\n')}
 </main>
-${portfolio ? `<main class="readme" id="aba-portfolio" hidden>\n<p class="rotulo">${esc(cfg.usuario)} / portfolio.md</p>\n${portfolio}</main>` : ''}
+${curriculo ? `<main class="readme" id="aba-curriculo" hidden>\n<p class="rotulo">${esc(cfg.usuario)} / curriculo.md</p>\n${curriculo}</main>` : ''}
 <script type="application/json" id="artes">${json}</script>
 <script>
 const ARTES = JSON.parse(document.getElementById('artes').textContent);
 const RESUMOS = ${JSON.stringify(resumos)};
 const raiz = document.documentElement;
 const abaPerfil = document.getElementById('aba-perfil');
-const abaPortfolio = document.getElementById('aba-portfolio');
+const abaCurriculo = document.getElementById('aba-curriculo');
 let ativo = null;
 let enderecos = [];
 
@@ -216,9 +221,12 @@ function pintar() {
   const tema = temaAtual();
   enderecos.forEach((u) => URL.revokeObjectURL(u));
   enderecos = [];
-  document.querySelectorAll('section[data-estilo="' + ativo + '"] img[data-arte], #aba-portfolio img[data-arte]').forEach((img) => {
-    const [estilo, arte] = img.dataset.arte.split('/');
-    const svg = ARTES[estilo] && ARTES[estilo][arte] && ARTES[estilo][arte][tema];
+  document.querySelectorAll('section[data-estilo="' + ativo + '"] img[data-arte], #aba-curriculo img[data-arte]').forEach((img) => {
+    const partes = img.dataset.arte.split('/');
+    const estilo = partes[0] === '*' ? ativo : partes[0];
+    const par = ARTES[estilo] && ARTES[estilo][partes[1]];
+    if (!par) return;
+    const svg = par[tema] === '=' ? par.claro : par[tema];
     if (!svg) return;
     const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
     enderecos.push(url);
@@ -240,7 +248,7 @@ function trocarHash(h) {
 function mostrar(id) {
   ativo = id;
   abaPerfil.hidden = false;
-  if (abaPortfolio) abaPortfolio.hidden = true;
+  if (abaCurriculo) abaCurriculo.hidden = true;
   marcarPagina('perfil');
   document.querySelectorAll('section[data-estilo]').forEach((s) => (s.hidden = s.dataset.estilo !== id));
   document.querySelectorAll('[data-ir]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.ir === id)));
@@ -249,12 +257,13 @@ function mostrar(id) {
   pintar();
 }
 
-function abrirPortfolio(alvo) {
-  if (!abaPortfolio) return;
+function abrirCurriculo(alvo) {
+  if (!abaCurriculo) return;
   abaPerfil.hidden = true;
-  abaPortfolio.hidden = false;
-  marcarPagina('portfolio');
-  document.getElementById('resumo').textContent = 'Todos os projetos, sem nomes, números nem dados da empresa.';
+  abaCurriculo.hidden = false;
+  marcarPagina('curriculo');
+  document.getElementById('resumo').textContent = 'O currículo, sem nome de empresa nem dados internos.';
+  pintar();
   const el = document.getElementById(alvo) || document.getElementById('caso-topo');
   if (el) el.scrollIntoView({ block: 'start' });
   trocarHash(alvo);
@@ -262,14 +271,14 @@ function abrirPortfolio(alvo) {
 
 function seguirHash() {
   const h = location.hash.slice(1);
-  if (h.startsWith('caso-') || h.startsWith('area-')) abrirPortfolio(h);
+  if (h.startsWith('caso-')) abrirCurriculo(h);
   else if (h in RESUMOS) { if (h !== ativo || abaPerfil.hidden) mostrar(h); }
   else if (h === 'perfil') mostrar(ativo || '${NA_PREVIA[0]}');
 }
 
 document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.ir)));
 document.querySelectorAll('[data-pagina]').forEach((b) =>
-  b.addEventListener('click', () => (b.dataset.pagina === 'portfolio' ? abrirPortfolio('caso-topo') : mostrar(ativo || '${NA_PREVIA[0]}'))),
+  b.addEventListener('click', () => (b.dataset.pagina === 'curriculo' ? abrirCurriculo('caso-topo') : mostrar(ativo || '${NA_PREVIA[0]}'))),
 );
 document.querySelectorAll('[data-tema]').forEach((b) =>
   b.addEventListener('click', () => {
@@ -284,7 +293,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 window.addEventListener('hashchange', seguirHash);
 const inicial = location.hash.slice(1);
 mostrar(inicial in RESUMOS ? inicial : '${NA_PREVIA[0]}');
-if (inicial.startsWith('caso-') || inicial.startsWith('area-')) abrirPortfolio(inicial);
+if (inicial.startsWith('caso-')) abrirCurriculo(inicial);
 </script>
 `;
 }

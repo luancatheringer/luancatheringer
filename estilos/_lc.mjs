@@ -1,4 +1,4 @@
-// Peças comuns do estilo "Assinatura": usadas pelo perfil (lc.mjs) e pelas cenas do portfólio (lc-casos.mjs).
+// Peças comuns dos estilos: a folha desenhada no navegador (folha + recorte) e utilidades de animação.
 // As partes fixas são desenhadas no navegador (para usar as fontes da marca) e viram imagem dentro do SVG;
 // as animações (SMIL) entram por cima, encaixadas pelas medidas que o navegador devolve.
 
@@ -54,8 +54,10 @@ body{position:relative;font-family:'Nunito Sans',${ARIAL};font-weight:600;color:
 
 // Desenha a página no navegador. O que fica abaixo de H é reserva: pedaços que as animações
 // trazem para a parte visível (recorte), para poderem aparecer e sumir.
-export async function folha(R, t, id, W, H, corpo, reserva = 0) {
-  const r = await R(pagina(t, W, H + reserva, corpo), W, H + reserva, { fontes: FONTES });
+// opcoes.montar e opcoes.fontes trocam a página base (outro estilo, outras fontes).
+export async function folha(R, t, id, W, H, corpo, reserva = 0, opcoes = {}) {
+  const montar = opcoes.montar ?? pagina;
+  const r = await R(montar(t, W, H + reserva, corpo), W, H + reserva, { fontes: opcoes.fontes ?? FONTES });
   return {
     medidas: r.medidas,
     def: `<image id="${id}" href="${r.uri}" width="${W}" height="${H + reserva}"/>`,
@@ -266,14 +268,17 @@ export const cabecalhoTela = (t, titulo, sub) =>
 
 // telas: [{ menu, html(t, tw, th), reserva?, animar(f, ctx) }]
 // ctx: { t, P, N, i, a (começo da fatia), T0 (tela já visível), T1 (tela começa a sair), ox, oy }
-export async function painelAnimado(t, R, { W, H, px, py, pw = 726, ph = 404, menu, telas, P, textoEsquerda = '', titulo, extra }) {
-  const fb = await folha(R, t, 'f', W, H, `${textoEsquerda}${molduraPainel(t, { px, py, pw, ph, menu })}`);
+// moldura/folhaFn/lat/topo/aceso: trocam o desenho do painel (outro estilo usa a mesma mecânica)
+export async function painelAnimado(t, R, { W, H, px, py, pw = 726, ph = 404, menu, telas, P, textoEsquerda = '', titulo, extra, moldura = molduraPainel, folhaFn = folha, lat = LAT, topo = TOPO, aceso }) {
+  const LAT = lat; // eslint-disable-line no-shadow
+  const TOPO = topo; // eslint-disable-line no-shadow
+  const fb = await folhaFn(R, t, 'f', W, H, `${textoEsquerda}${moldura(t, { px, py, pw, ph, menu, lat: LAT, topo: TOPO })}`);
   const tw = pw - LAT;
   const th = ph - TOPO;
   const ox = px + LAT;
   const oy = py + TOPO;
   const folhas = [];
-  for (const [i, tela] of telas.entries()) folhas.push(await folha(R, t, `t${i}`, tw, th, tela.html(t, tw, th), tela.reserva ?? 0));
+  for (const [i, tela] of telas.entries()) folhas.push(await folhaFn(R, t, `t${i}`, tw, th, tela.html(t, tw, th), tela.reserva ?? 0));
 
   // Cada tela aparece, anima e sai antes de a próxima entrar. Nada começa antes do zero,
   // então a volta do ciclo acontece com tudo apagado.
@@ -306,8 +311,9 @@ export async function painelAnimado(t, R, { W, H, px, py, pw = 726, ph = 404, me
   });
   const desliza = (d = 0) =>
     `<animate attributeName="y" ${ciclo(P)} keyTimes="${kt(...tempos)}" values="${posicoes.map((y) => n(y + d)).join(';')}" calcMode="spline" keySplines="${curvas.join(';')}"/>`;
-  const acesoMenu = `<rect x="${px}" y="${n(ys[0])}" width="${LAT}" height="32" fill="${t.tealFundo}">${desliza()}</rect>
-<rect x="${px}" y="${n(ys[0] + 5)}" width="3" height="22" rx="1.5" fill="${t.teal}">${desliza(5)}</rect>`;
+  const cores = aceso ?? { fundo: t.tealFundo, barra: t.teal, rx: 1.5 };
+  const acesoMenu = `<rect x="${px}" y="${n(ys[0])}" width="${LAT}" height="32" fill="${cores.fundo}">${desliza()}</rect>
+<rect x="${px}" y="${n(ys[0] + 5)}" width="3" height="22" rx="${cores.rx}" fill="${cores.barra}">${desliza(5)}</rect>`;
 
   return svg({
     w: W,

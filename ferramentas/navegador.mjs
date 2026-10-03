@@ -135,6 +135,13 @@ export async function abrirNavegador({ porta = 9351 } = {}) {
     return resultado;
   }
 
+  // Abre um HTML e devolve o resultado de uma expressão (sem foto): serve para medir ou
+  // amostrar algo no navegador, como os pontos de uma imagem.
+  async function executar(html, expressao) {
+    await enviar('Page.setDocumentContent', { frameId: frameTree.frame.id, html });
+    return avaliar(expressao);
+  }
+
   async function fechar() {
     try {
       ws.close();
@@ -146,5 +153,5 @@ export async function abrirNavegador({ porta = 9351 } = {}) {
     } catch {}
   }
 
-  return { renderizar, fechar };
+  return { renderizar, executar, fechar };
 }
