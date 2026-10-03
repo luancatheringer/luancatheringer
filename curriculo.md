@@ -78,10 +78,6 @@ Sou gestor de automação. Não venho da programação: construo com IA, no que 
 - **Dados e relatórios:** planilhas, relatórios e apresentações automáticas, com scripts feitos com IA
 - **Segurança e LGPD:** verificação em duas etapas, revisão de segurança antes de publicar, cuidado com dado pessoal
 
-## Formação
-
-- Curso de Gestor de Automação (Hotmart)
-
 ---
 
 <sub>Automatizar é fácil. Não quebrar é o difícil. · [voltar ao perfil](https://github.com/luancatheringer)</sub>

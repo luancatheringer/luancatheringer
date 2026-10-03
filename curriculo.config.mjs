@@ -136,5 +136,5 @@ export default {
     ['Segurança e LGPD', 'verificação em duas etapas, revisão de segurança antes de publicar, cuidado com dado pessoal'],
   ],
 
-  formacao: ['Curso de Gestor de Automação (Hotmart)'],
+  // formacao: ['...'] (opcional: aparece como a seção "Formação" no fim do currículo)
 };
