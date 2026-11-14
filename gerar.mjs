@@ -16,6 +16,21 @@ const { esc } = await importar('estilos/_base.mjs');
 const { curriculoMarkdown, curriculoHtml } = await importar('curriculo.mjs');
 const dadosCurriculo = existsSync(join(RAIZ, 'curriculo.config.mjs')) ? (await importar('curriculo.config.mjs')).default : null;
 
+// Números que saem dos próprios dados, para o perfil e o currículo nunca discordarem:
+// "entregues" e "emUso" contam os itens do currículo; "atualizacoes" e "semanas" saem da atividade da plataforma.
+const itensCurriculo = (dadosCurriculo?.experiencia ?? []).flatMap((g) => g.itens);
+const atividade = cfg.atividade;
+const numeros = {
+  entregues: itensCurriculo.filter((it) => !it.andamento).length,
+  emUso: itensCurriculo.filter((it) => it.emUso).length,
+  atualizacoes: atividade ? atividade.dias.reduce((s, [, q]) => s + q, 0) : 0,
+  semanas: atividade ? Math.round((new Date(`${atividade.fim}T12:00:00`) - new Date(`${atividade.inicio}T12:00:00`)) / (7 * 864e5)) : 0,
+};
+for (const linha of [...cfg.resumo.linhas, cfg.resumo.grande]) {
+  if (linha.doCurriculo && dadosCurriculo) linha.valor = numeros[linha.doCurriculo];
+  if (linha.daAtividade && atividade) linha.valor = numeros.atualizacoes;
+}
+
 // Estilos disponíveis: cada um é um arquivo em estilos/ (os que começam com _ são peças compartilhadas)
 const ESTILOS = ['terminal'].filter((id) => existsSync(join(RAIZ, 'estilos', `${id}.mjs`)));
 // O que aparece na página de prévia (com mais de um, vira comparação entre variações)
@@ -110,6 +125,7 @@ try {
     topo: im('topo', altTopo, 'width="100%"'),
     resumo: im('resumo', 'Resumo em números', 'width="100%"'),
     imagem: (nome, titulo) => im(nome, `${titulo}: o que a plataforma tem`, 'width="100%"'),
+    valores: numeros,
   });
   if (dadosCurriculo) {
     writeFileSync(join(RAIZ, 'curriculo.md'), curriculoMarkdown(cfg, dadosCurriculo, pecasCurriculo(img)));

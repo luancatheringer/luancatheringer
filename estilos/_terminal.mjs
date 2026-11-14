@@ -295,12 +295,30 @@ export async function stats(cfg, R) {
     seg.setDate(seg.getDate() - ((seg.getDay() + 6) % 7));
     for (let d = new Date(seg); d <= fim; d.setDate(d.getDate() + 7)) semanas.push(new Date(d));
   }
+  // legenda montada a partir dos dados (período, total e dias com atualização), para nunca discordar do gráfico
+  const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const legenda = atv
+    ? atv.legenda ?? `${ddmm(atv.inicio)} a ${ddmm(atv.fim)} · ${soma.toLocaleString('pt-BR')} atualizações em ${atv.dias.filter(([, q]) => q > 0).length} dias`
+    : '';
   const nivel = (q) => (q === 0 ? 0 : q < 10 ? 1 : q < 20 ? 2 : q < 50 ? 3 : 4);
   const CORES_NIVEL = ['rgba(214,222,255,.06)', 'rgba(44,201,185,.28)', 'rgba(44,201,185,.5)', 'rgba(44,201,185,.75)', '#2CC9B9'];
-  const q = 24;
-  const gap = 5;
-  const gx = 770;
+  // o gráfico fica encostado à direita e o quadradinho encolhe quando o período cresce
+  const xMax = jx + jw - 36;
+  const xMin = 560;
+  const passoQ = Math.max(12, Math.min(29, Math.floor((xMax - xMin + 5) / Math.max(1, semanas.length))));
+  const gap = passoQ >= 20 ? 5 : 3;
+  const q = passoQ - gap;
+  const gx = xMax - (semanas.length * passoQ - gap);
+  const gxTexto = Math.min(gx, xMax - 340); // título e legenda não passam da borda
   const gy = jy + 38 + 70;
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  // nome do mês em cima da primeira coluna que começa nele (como no gráfico do GitHub)
+  const rotulosMes = [];
+  semanas.forEach((s, c) => {
+    const primeiroDia = c === 0 && ini > s ? ini : s;
+    const mes = primeiroDia.getMonth();
+    if (!rotulosMes.length || rotulosMes[rotulosMes.length - 1].mes !== mes) rotulosMes.push({ mes, x: gx + c * passoQ });
+  });
 
   let reserva = '';
   quadros.forEach((qs, i) => {
@@ -317,9 +335,10 @@ export async function stats(cfg, R) {
 ${linhas.map((l, i) => `<div class="abs linha" data-m="l${i}" style="left:${lx}px;top:${yL(i)}px;font-size:15px;line-height:20px"><span class="texto">${esc(l.rotulo)}</span> <span style="color:${C.numeroLinha}">${'.'.repeat(Math.max(3, LARG - l.rotulo.length))}</span><span data-m="v${i}" style="display:inline-block;width:1px;height:20px"></span></div>`).join('')}
 <div class="abs linha" data-m="noar" style="left:${colNum + 18}px;top:${yL(linhas.length - 1)}px;font-size:13px;line-height:20px;color:${C.ok}">● no ar</div>
 <div class="abs linha" data-m="p2" style="left:${lx}px;top:${yP2}px;font-size:14px;line-height:20px">${prompt('')}</div>
-<div class="abs linha" style="left:${gx}px;top:${gy - 46}px;font-size:12.5px;line-height:18px"><span class="comentario">// ${esc(atv?.titulo ?? 'atualizações por dia na plataforma')}</span></div>
-<div class="abs linha" style="left:${gx}px;top:${gy - 26}px;font-size:12px;line-height:16px;color:${C.apagado}">${esc(atv?.legenda ?? '')}</div>
-${['seg', '', 'qua', '', 'sex', '', 'dom'].map((d, i) => (d ? `<div class="abs" style="left:${gx - 36}px;top:${gy + i * (q + gap) + 5}px;font-size:10.5px;color:${C.apagado}">${d}</div>` : '')).join('')}
+<div class="abs linha" style="left:${gxTexto}px;top:${gy - 62}px;font-size:12.5px;line-height:18px"><span class="comentario">// ${esc(atv?.titulo ?? 'atualizações por dia na plataforma')}</span></div>
+<div class="abs linha" style="left:${gxTexto}px;top:${gy - 42}px;font-size:12px;line-height:16px;color:${C.apagado}">${esc(legenda)}</div>
+${rotulosMes.map((r) => `<div class="abs linha" style="left:${r.x}px;top:${gy - 18}px;font-size:10.5px;line-height:14px;color:${C.apagado}">${MESES[r.mes]}</div>`).join('')}
+${['seg', '', 'qua', '', 'sex', '', 'dom'].map((d, i) => (d ? `<div class="abs" style="left:${gx - 36}px;top:${gy + i * (q + gap) + Math.round(q / 2) - 7}px;font-size:10.5px;line-height:14px;color:${C.apagado}">${d}</div>` : '')).join('')}
 <div class="abs" style="left:${gx}px;top:${gy + 7 * (q + gap) + 6}px;display:flex;align-items:center;gap:5px;font-size:10.5px;color:${C.apagado}">menos ${CORES_NIVEL.map((c) => `<span style="width:11px;height:11px;border-radius:2px;background:${c}"></span>`).join('')} mais</div>
 ${reserva}`,
     quadros.length * 64 + 60,
@@ -353,7 +372,7 @@ ${reserva}`,
       const qd = dias.get(chave) ?? 0;
       const x = gx + c * (q + gap);
       const y = gy + d * (q + gap);
-      const a = (0.6 + c * 0.16 + d * 0.025) / P;
+      const a = (0.6 + c * Math.min(0.16, 1.8 / semanas.length) + d * 0.025) / P;
       grafico += `<rect x="${x}" y="${y}" width="${q}" height="${q}" rx="3" fill="${CORES_NIVEL[0]}"/>`;
       if (qd) grafico += `<rect x="${x}" y="${y}" width="${q}" height="${q}" rx="3" fill="${CORES_NIVEL[nivel(qd)]}" opacity="0"><animate attributeName="opacity" dur="${P}s" fill="freeze" keyTimes="0;${n4(a)};${n4(Math.min(a + 0.08, 1))};1" values="0;0;1;1"/></rect>`;
     }
@@ -372,7 +391,7 @@ ${reserva}`,
   return svg({
     w: W,
     h: H,
-    titulo: `luan --stats: ${linhas.map((l) => `${l.rotulo} ${l.valor}`).join('; ')}`,
+    titulo: `luan --stats: ${linhas.map((l) => `${l.rotulo} ${l.valor.toLocaleString('pt-BR')}`).join('; ')}`,
     defs: `${f.def}${defsSombra}`,
     corpo: `${sombraJanela(jx + 10, jy + 16, jw - 20, jh - 10)}${inteira(W, H)}${saida}${noAr}${prompt2}${numeros}${grafico}${destaqueDia}`,
   });
@@ -502,7 +521,7 @@ export function montarEstilo() {
       const principal = cfg.projetos.find((p) => p.destaque) ?? cfg.projetos[0];
       const insta = cfg.links.find((l) => l.rede === 'Instagram' && l.url);
       const r = cfg.resumo;
-      const altResumo = `luan --stats: ${r.linhas.map((l) => `${l.rotulo} ${l.valor}`).join('; ')}; ${r.grande.rotulo} ${r.grande.valor}.`;
+      const altResumo = `luan --stats: ${r.linhas.map((l) => `${l.rotulo} ${l.valor.toLocaleString('pt-BR')}`).join('; ')}; ${r.grande.rotulo} ${r.grande.valor}.`;
       return `<p>${comLink(cfg.urlCurriculo, img('topo', `${cfg.nome}: ${cfg.bio}`, 'width="100%"'))}</p>
 
 <p>${img('resumo', altResumo, 'width="100%"')}</p>
