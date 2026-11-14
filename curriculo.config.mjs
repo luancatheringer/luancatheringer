@@ -60,7 +60,7 @@ export default {
           slug: 'operacoes-em-lote',
           titulo: 'Operações em lote pela API',
           texto:
-            'Listas de prospecção e de campanha viraram mais de mil cards no funil do vendedor, carteiras inteiras passaram para uma nova responsável conferidas card a card, atendimentos de campanha foram para a equipe certa e mais de 2 mil promoções antigas foram desativadas na loja virtual. Sempre com teste em poucos itens, backup antes e conferência no fim: zero duplicado e zero falha.',
+            'Listas de prospecção e de campanha viraram mais de mil cards no funil do vendedor, a carteira de uma região passou para uma nova responsável conferida card a card, atendimentos de campanha foram para a equipe certa e mais de 2 mil promoções antigas foram desativadas na loja virtual. Sempre com teste em poucos itens, backup antes e conferência no fim: zero duplicado e zero falha.',
         },
         {
           titulo: 'Leads recuperados pelo webhook',
@@ -197,7 +197,7 @@ export default {
           slug: 'migracao-do-blog',
           titulo: 'Migração do blog sem perder busca orgânica',
           texto:
-            'Blog antigo levado para o WordPress: 142 textos convertidos por script e publicados com capa nova criada com IA, 144 redirecionamentos 301 com 100% de acerto, 480 links ajustados e nenhum quebrado, e os 199 textos do blog com nota verde de SEO e de legibilidade. Concluída em outubro.',
+            'Blog antigo levado para o WordPress: 142 textos convertidos por script e publicados, com capas novas criadas com IA, 144 redirecionamentos 301 com 100% de acerto, 480 links ajustados e nenhum quebrado, e os 199 textos do blog com nota verde de SEO e de legibilidade. Concluída em outubro.',
         },
         {
           titulo: 'Saúde semanal do blog',
